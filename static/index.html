@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WiFi Campus Geolocation - Temps Réel</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #0a0e27;
+  color: #fff;
+  overflow: hidden;
+}
+
+#header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+  position: relative;
+  z-index: 1000;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.pulse-dot {
+  width: 12px;
+  height: 12px;
+  background: #00ff88;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7);
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7);
+  }
+  50% { 
+    transform: scale(1.1);
+    box-shadow: 0 0 0 10px rgba(0, 255, 136, 0);
+  }
+}
+
+.info-panel {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.info-card {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.info-label {
+  font-size: 11px;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.confidence-badge {
+  background: linear-gradient(135deg, #00ff88, #00cc6a);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #000;
+  box-shadow: 0 4px 15px rgba(0, 255, 136, 0.4);
+}
+
+.confidence-low {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  color: white;
+}
+
+.confidence-medium {
+  background: linear-gradient(135deg, #ffd93d, #f7c548);
+  color: #000;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00ff88;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.status-error {
+  background: #ff6b6b;
+}
+
+#container {
+  display: flex;
+  height: calc(100vh - 80px);
+}
+
+#map {
+  flex: 1;
+  position: relative;
+}
+
+#sidebar {
+  width: 360px;
+  background: #1a1e3a;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-section {
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.6;
+  margin-bottom: 12px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stat-label {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.stat-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.alternatives-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alternative-item {
+  background: rgba(102, 126, 234, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid #667eea;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.alternative-item:hover {
+  background: rgba(102, 126, 234, 0.2);
+  transform: translateX(5px);
+}
+
+.alt-location {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.alt-score {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.network-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.network-item {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.network-ssid {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #667eea;
+}
+
+.network-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.rssi-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.rssi-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+.rssi-excellent {
+  background: linear-gradient(90deg, #00ff88, #00cc6a);
+}
+
+.rssi-good {
+  background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+.rssi-fair {
+  background: linear-gradient(90deg, #ffd93d, #f7c548);
+}
+
+.rssi-poor {
+  background: linear-gradient(90deg, #ff6b6b, #ee5a52);
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  opacity: 0.5;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(102, 126, 234, 0.2);
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px 20px;
+  opacity: 0.6;
+  font-size: 13px;
+}
+
+/* Leaflet customization */
+.leaflet-popup-content-wrapper {
+  background: #1a1e3a;
+  color: #fff;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.leaflet-popup-tip {
+  background: #1a1e3a;
+}
+
+.popup-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #667eea;
+}
+
+.popup-coords {
+  font-size: 12px;
+  opacity: 0.7;
+  line-height: 1.6;
+}
+
+/* Path historique */
+.history-path {
+  stroke: #667eea;
+  stroke-width: 3;
+  stroke-opacity: 0.6;
+  fill: none;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  #sidebar {
+    width: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  #container {
+    flex-direction: column;
+  }
+  
+  #sidebar {
+    width: 100%;
+    height: 250px;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .info-panel {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .info-card {
+    min-width: 110px;
+    padding: 8px 12px;
+  }
+}
+
+/* Scroll personnalisé */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.7);
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="header-left">
+    <div class="header-title">
+      <div class="pulse-dot"></div>
+      WiFi Geolocation
+    </div>
+  </div>
+  
+  <div class="info-panel">
+    <div class="info-card">
+      <div class="info-label">Position</div>
+      <div class="info-value" id="location">
+        🔍 Recherche...
+      </div>
+    </div>
+    
+    <div class="info-card">
+      <div class="info-label">Confiance</div>
+      <div class="info-value">
+        <span class="confidence-badge" id="confidence">--%</span>
+      </div>
+    </div>
+    
+    <div class="status-indicator">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Connexion...</span>
+    </div>
+  </div>
+</div>
+
+<div id="container">
+  <div id="map"></div>
+  
+  <div id="sidebar">
+    <div class="sidebar-section">
+      <div class="section-title">📊 Statistiques</div>
+      <div class="stat-row">
+        <span class="stat-label">Score total</span>
+        <span class="stat-value" id="score">-</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">MACs détectées</span>
+        <span class="stat-value" id="matchedMacs">-</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">MACs principales</span>
+        <span class="stat-value" id="primaryMacs">-</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">GPS</span>
+        <span class="stat-value" id="gpsCoords" style="font-size: 11px; font-family: monospace;">-</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Dernière maj</span>
+        <span class="stat-value" id="lastUpdate">-</span>
+      </div>
+    </div>
+    
+    <div class="sidebar-section">
+      <div class="section-title">📍 Positions Alternatives</div>
+      <div id="alternatives" class="alternatives-list">
+        <div class="loading">
+          <div class="spinner"></div>
+          En attente de données...
+        </div>
+      </div>
+    </div>
+    
+    <div class="sidebar-section">
+      <div class="section-title">📡 Réseaux Détectés (<span id="networkCount">0</span>)</div>
+      <div id="networks" class="network-list">
+        <div class="no-data">Aucun réseau</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Configuration
+const UPDATE_INTERVAL = 3000; // 3 secondes
+const MAX_HISTORY = 50;
+
+// État global
+let positionHistory = [];
+let updateCount = 0;
+let lastKnownPosition = null;
+
+// Initialisation de la carte
+const map = L.map("map").setView([48.8466, 2.3554], 17);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 20,
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+let marker = null;
+let accuracyCircle = null;
+let historyPath = null;
+
+// Fonction pour obtenir la classe RSSI
+function getRSSIClass(rssi) {
+  if (rssi >= -50) return { class: 'excellent', width: 100 };
+  if (rssi >= -60) return { class: 'good', width: 80 };
+  if (rssi >= -70) return { class: 'fair', width: 60 };
+  return { class: 'poor', width: 40 };
+}
+
+// Fonction pour afficher les réseaux
+async function updateNetworks() {
+  try {
+    const res = await fetch("/networks/current");
+    const data = await res.json();
+    
+    const container = document.getElementById("networks");
+    const countEl = document.getElementById("networkCount");
+    
+    if (!data.networks || data.networks.length === 0) {
+      container.innerHTML = '<div class="no-data">Aucun réseau détecté</div>';
+      countEl.innerText = "0";
+      return;
+    }
+    
+    countEl.innerText = data.networks.length;
+    
+    // Trier par RSSI décroissant
+    const sorted = data.networks.sort((a, b) => b.rssi - a.rssi);
+    
+    container.innerHTML = sorted.slice(0, 15).map(net => {
+      const rssi = parseInt(net.rssi);
+      const rssiInfo = getRSSIClass(rssi);
+      
+      return `
+        <div class="network-item">
+          <div class="network-ssid">${net.ssid || '(Hidden)'}</div>
+          <div class="network-details">
+            <span>${net.bssid}</span>
+            <span>${rssi} dBm</span>
+          </div>
+          <div class="rssi-bar">
+            <div class="rssi-fill rssi-${rssiInfo.class}" style="width: ${rssiInfo.width}%"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+  } catch (e) {
+    console.error("Erreur réseaux:", e);
+  }
+}
+
+// Fonction de mise à jour de la position
+async function updatePosition() {
+  try {
+    const res = await fetch("/position/estimate");
+    const data = await res.json();
+    
+    if (!data.available) {
+      document.getElementById("location").innerHTML = '<span style="opacity: 0.5">❌ Non disponible</span>';
+      document.getElementById("confidence").innerText = "--%";
+      document.getElementById("confidence").className = "confidence-badge confidence-low";
+      document.getElementById("statusDot").className = "status-dot status-error";
+      document.getElementById("statusText").innerText = data.message || "Aucune donnée";
+      
+      document.getElementById("score").innerText = "-";
+      document.getElementById("matchedMacs").innerText = "-";
+      document.getElementById("primaryMacs").innerText = "-";
+      document.getElementById("gpsCoords").innerText = "-";
+      
+      return;
+    }
+    
+    // Mise à jour des informations
+    document.getElementById("location").innerHTML = `📍 ${data.estimated_location}`;
+    
+    const confidence = Math.round(data.confidence);
+    document.getElementById("confidence").innerText = confidence + "%";
+    
+    const confBadge = document.getElementById("confidence");
+    if (confidence >= 70) {
+      confBadge.className = "confidence-badge";
+    } else if (confidence >= 40) {
+      confBadge.className = "confidence-badge confidence-medium";
+    } else {
+      confBadge.className = "confidence-badge confidence-low";
+    }
+    
+    document.getElementById("statusDot").className = "status-dot";
+    document.getElementById("statusText").innerText = "✓ En ligne";
+    
+    document.getElementById("score").innerText = data.score || "-";
+    document.getElementById("matchedMacs").innerText = data.matched_macs || "-";
+    document.getElementById("primaryMacs").innerText = data.primary_macs || "-";
+    document.getElementById("gpsCoords").innerText = `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
+    document.getElementById("lastUpdate").innerText = new Date().toLocaleTimeString("fr-FR");
+    
+    // Alternatives
+    const altContainer = document.getElementById("alternatives");
+    if (data.alternatives && data.alternatives.length > 0) {
+      altContainer.innerHTML = data.alternatives.map(alt => `
+        <div class="alternative-item">
+          <span class="alt-location">${alt.location}</span>
+          <span class="alt-score">Score: ${alt.score}</span>
+        </div>
+      `).join('');
+    } else {
+      altContainer.innerHTML = '<div class="no-data">Aucune alternative disponible</div>';
+    }
+    
+    // Position sur la carte
+    const latlng = [data.latitude, data.longitude];
+    
+    // Ajouter à l'historique
+    if (!lastKnownPosition || 
+        lastKnownPosition.lat !== data.latitude || 
+        lastKnownPosition.lng !== data.longitude) {
+      
+      positionHistory.push({
+        lat: data.latitude,
+        lng: data.longitude,
+        location: data.estimated_location,
+        timestamp: Date.now()
+      });
+      
+      if (positionHistory.length > MAX_HISTORY) {
+        positionHistory.shift();
+      }
+      
+      lastKnownPosition = { lat: data.latitude, lng: data.longitude };
+    }
+    
+    // Supprimer les anciens éléments
+    if (marker) map.removeLayer(marker);
+    if (accuracyCircle) map.removeLayer(accuracyCircle);
+    if (historyPath) map.removeLayer(historyPath);
+    
+    // Dessiner le chemin historique
+    if (positionHistory.length > 1) {
+      const pathCoords = positionHistory.map(p => [p.lat, p.lng]);
+      historyPath = L.polyline(pathCoords, {
+        color: '#667eea',
+        weight: 3,
+        opacity: 0.6,
+        smoothFactor: 1
+      }).addTo(map);
+    }
+    
+    // Rayon de précision
+    const radius = Math.max(5, (100 - confidence) * 1.5);
+    
+    accuracyCircle = L.circle(latlng, {
+      color: confidence >= 70 ? '#00ff88' : (confidence >= 40 ? '#ffd93d' : '#ff6b6b'),
+      fillColor: confidence >= 70 ? '#00ff88' : (confidence >= 40 ? '#ffd93d' : '#ff6b6b'),
+      fillOpacity: 0.2,
+      radius: radius
+    }).addTo(map);
+    
+    // Marqueur personnalisé
+    marker = L.marker(latlng, {
+      icon: L.divIcon({
+        className: 'custom-marker',
+        html: `
+          <div style="
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.3), 0 4px 15px rgba(102, 126, 234, 0.6);
+            animation: pulse-marker 2s ease-in-out infinite;
+          "></div>
+          <style>
+            @keyframes pulse-marker {
+              0%, 100% { transform: scale(1); }
+              50% { transform: scale(1.15); }
+            }
+          </style>
+        `,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      })
+    }).addTo(map);
+    
+    marker.bindPopup(`
+      <div class="popup-title">${data.estimated_location}</div>
+      <div class="popup-coords">
+        📍 ${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}<br>
+        🎯 Confiance: ${confidence}%<br>
+        📡 ${data.matched_macs} MACs détectées<br>
+        🔢 Score: ${data.score}
+      </div>
+    `);
+    
+    // Centrer la carte intelligemment
+    if (updateCount === 0) {
+      map.setView(latlng, 18, { animate: true });
+    } else if (updateCount < 3 || map.getCenter().distanceTo(latlng) > 100) {
+      map.panTo(latlng, { animate: true, duration: 0.5 });
+    }
+    
+    updateCount++;
+    
+  } catch (e) {
+    console.error("Erreur API:", e);
+    document.getElementById("location").innerHTML = '<span style="opacity: 0.5">⚠️ Erreur</span>';
+    document.getElementById("statusDot").className = "status-dot status-error";
+    document.getElementById("statusText").innerText = "❌ Erreur connexion";
+  }
+}
+
+// Charger les localisations de référence
+async function loadReferenceLocations() {
+  try {
+    const res = await fetch("/locations/all");
+    const data = await res.json();
+    
+    if (data.locations) {
+      data.locations.forEach(loc => {
+        L.circleMarker([loc.latitude, loc.longitude], {
+          radius: 6,
+          fillColor: '#764ba2',
+          color: '#fff',
+          weight: 2,
+          opacity: 0.8,
+          fillOpacity: 0.6
+        }).addTo(map).bindPopup(`
+          <div class="popup-title">${loc.salle}</div>
+          <div class="popup-coords">
+            Point de référence<br>
+            ${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}
+          </div>
+        `);
+      });
+    }
+  } catch (e) {
+    console.error("Erreur chargement localisations:", e);
+  }
+}
+
+// Démarrage
+console.log("🚀 Initialisation du dashboard...");
+loadReferenceLocations();
+updatePosition();
+updateNetworks();
+
+setInterval(updatePosition, UPDATE_INTERVAL);
+setInterval(updateNetworks, UPDATE_INTERVAL);
+
+console.log("✅ Dashboard opérationnel");
+</script>
+
+</body>
+</html>
