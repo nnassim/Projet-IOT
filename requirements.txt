@@ -1,0 +1,20 @@
+# Backend - Serveur FastAPI
+fastapi==0.115.6
+uvicorn==0.34.0
+
+# Traitement de données
+pandas==2.2.3
+numpy==2.2.1
+
+# Communication série avec ESP32
+pyserial==3.5
+
+# MQTT - Publication des données
+paho-mqtt==2.1.0
+
+# WebSocket - Communication temps réel
+python-multipart==0.0.20
+websockets==14.1
+
+# CORS - Autoriser requêtes cross-origin
+starlette==0.41.3
